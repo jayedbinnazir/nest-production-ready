@@ -25,6 +25,7 @@
     "ms": "cross-env NODE_ENV=dev npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d ./src/database/typeorm.datasource.ts",
     "docker:build": "docker-compose -f docker-compose.dev.yml --env-file .env.dev up --build",
     "docker:service": "docker-compose -f docker-compose.service.yml --env-file .env.dev up -d",
+    "docker:kafka": "docker-compose -f docker-compose.kafka.yml --env-file .env.dev up --build",
     "docker:down": "docker-compose -f docker-compose.dev.yml --env-file .env.dev down",
     "docker:down:v": "docker-compose -f docker-compose.dev.yml --env-file .env.dev down -v",
     "docker:down:orphans": "docker-compose -f docker-compose.dev.yml --env-file .env.dev down --remove-orphans",
