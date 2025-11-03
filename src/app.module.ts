@@ -8,6 +8,7 @@ import { AppDataSource } from './database/typeorm.datasource';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { RoleModule } from './role/role.module';
+import { KafkaModule } from './kafka/kafka.module';
 
 @Module({
   imports: [
@@ -42,6 +43,8 @@ import { RoleModule } from './role/role.module';
     AuthModule,
 
     RoleModule,
+
+    KafkaModule,
   ],
   providers: [AppService],
   controllers: [AppController],

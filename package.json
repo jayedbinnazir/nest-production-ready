@@ -23,14 +23,15 @@
     "mr": "cross-env NODE_ENV=dev npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d ./src/database/typeorm.datasource.ts",
     "mrv": "cross-env NODE_ENV=dev npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d ./src/database/typeorm.datasource.ts",
     "ms": "cross-env NODE_ENV=dev npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d ./src/database/typeorm.datasource.ts",
-    "docker:build":"docker-compose -f docker-compose.dev.yml --env-file .env.dev up --build",
+    "docker:build": "docker-compose -f docker-compose.dev.yml --env-file .env.dev up --build",
+    "docker:service": "docker-compose -f docker-compose.service.yml --env-file .env.dev up -d",
     "docker:down": "docker-compose -f docker-compose.dev.yml --env-file .env.dev down",
     "docker:down:v": "docker-compose -f docker-compose.dev.yml --env-file .env.dev down -v",
     "docker:down:orphans": "docker-compose -f docker-compose.dev.yml --env-file .env.dev down --remove-orphans",
-    "docker:db:mr":"docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run mr",
-    "docker:db:mgd":"docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run mgd",
-    "docker:db:mrv":"docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run mrv",
-    "docker:db:ms":"docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run ms"
+    "docker:db:mr": "docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run mr",
+    "docker:db:mgd": "docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run mgd",
+    "docker:db:mrv": "docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run mrv",
+    "docker:db:ms": "docker-compose -f docker-compose.dev.yml --env-file .env.dev exec app1 npm run ms"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -42,6 +43,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "dotenv": "^17.2.3",
+    "kafkajs": "^2.2.4",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
