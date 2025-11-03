@@ -1,9 +1,14 @@
 {
     "cSpell.words": [
+        "bitnamilegacy",
         "configservice",
+        "dotenv",
+        "dpage",
+        "kafkajs",
         "mrevert",
         "mrun",
         "PGADMIN",
+        "pids",
         "timestamptz"
     ]
 }
