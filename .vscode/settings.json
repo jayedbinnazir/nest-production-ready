@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "appendonly",
         "bitnamilegacy",
         "configservice",
         "dotenv",
@@ -9,6 +10,7 @@
         "mrun",
         "PGADMIN",
         "pids",
+        "requirepass",
         "timestamptz"
     ]
 }

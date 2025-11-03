@@ -13,7 +13,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix(PREFIX);
 
-  console.log('hot reload Testidssng');
+  console.log('hot reload Testing-----------------');
 
   await app.listen(PORT, HOST, () => {
     console.log(`${APP_NAME} is running on ${HOST}:${PORT}`);
