@@ -9,6 +9,7 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { RoleModule } from './role/role.module';
 import { KafkaModule } from './kafka/kafka.module';
+import { CachingModule } from './caching/caching.module';
 
 @Module({
   imports: [
@@ -45,6 +46,8 @@ import { KafkaModule } from './kafka/kafka.module';
     RoleModule,
 
     KafkaModule,
+
+    CachingModule,
   ],
   providers: [AppService],
   controllers: [AppController],

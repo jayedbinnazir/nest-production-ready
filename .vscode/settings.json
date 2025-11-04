@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
+        "appendonly",
+        "AQAB",
         "bitnamilegacy",
         "configservice",
         "dotenv",
@@ -7,8 +9,10 @@
         "kafkajs",
         "mrevert",
         "mrun",
+        "nodenext",
         "PGADMIN",
         "pids",
+        "requirepass",
         "timestamptz"
     ]
 }

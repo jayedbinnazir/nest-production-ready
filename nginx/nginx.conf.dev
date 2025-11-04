@@ -8,9 +8,9 @@ http {
     include mime.types;
 
     upstream my_nest_app {
-        server app1:5000;
-        server app2:5000;
-        server app3:5000;     
+        server myapp-dev-1:5000;
+        server myapp-dev-2:5000;
+        server myapp-dev-3:5000;     
     }
 
     server {

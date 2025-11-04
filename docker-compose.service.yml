@@ -31,9 +31,32 @@ services:
       - db
     networks:
       - myapp-dev-network
+  
+  redis:
+    image: redis:7.2
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "myStrongPassword"]
+    networks:
+      - myapp-dev-network
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "8082:5540"
+    depends_on:
+      - redis
+    networks:
+      - myapp-dev-network
+    
 
 volumes:
   pgdata_dev:
+  redis_data:
 
 
 networks:
