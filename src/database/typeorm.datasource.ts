@@ -23,7 +23,7 @@ export const AppDataSource = new DataSource({
   username: dbConfig.username,
   password: dbConfig.password,
   database: dbConfig.name,
-  synchronize: false,
+  synchronize: true,
   logging: true,
   entities: [
     isCompiled
