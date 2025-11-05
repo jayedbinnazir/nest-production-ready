@@ -10,6 +10,8 @@ import { AuthModule } from './auth/auth.module';
 import { RoleModule } from './role/role.module';
 import { KafkaModule } from './kafka/kafka.module';
 import { CachingModule } from './caching/caching.module';
+import { FileSystemModule } from './file-system/file-system.module';
+import { AwsS3Module } from './aws-s3/aws-s3.module';
 
 @Module({
   imports: [
@@ -48,6 +50,10 @@ import { CachingModule } from './caching/caching.module';
     KafkaModule,
 
     CachingModule,
+
+    FileSystemModule,
+
+    AwsS3Module,
   ],
   providers: [AppService],
   controllers: [AppController],
