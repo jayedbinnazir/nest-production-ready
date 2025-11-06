@@ -1,5 +1,6 @@
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { Entity, Column } from 'typeorm';
+import { User } from 'src/user/entities/user.entity';
+import { Entity, Column, ManyToOne, JoinColumn, RelationId } from 'typeorm';
 
 @Entity('files')
 export class FileSystem extends BaseEntity {
@@ -18,6 +19,16 @@ export class FileSystem extends BaseEntity {
   @Column('bigint')
   size: number;
 
-  @Column({ nullable: true })
-  userId?: string; // optional uploader ID
+  @ManyToOne(() => User, (user) => user.profile_pictures, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  @JoinColumn({
+    name: 'user_id',
+    referencedColumnName: 'id',
+  })
+  user?: User;
+
+  @RelationId((file: FileSystem) => file.user)
+  user_id?: string;
 }

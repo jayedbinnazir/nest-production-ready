@@ -1,6 +1,8 @@
-import { Entity, Column, Unique, Index } from 'typeorm';
+import { Entity, Column, Unique, Index, OneToMany } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { BaseEntity } from 'src/common/entities/base.entity';
+import { AppUser } from 'src/app_user/entities/app_user.entity';
+import { FileSystem } from 'src/file-system/entities/file-system.entity';
 
 @Entity('users')
 @Index(['email']) // Index for email lookups
@@ -35,4 +37,17 @@ export class User extends BaseEntity {
 
   @Column({ type: 'boolean', default: false, nullable: true })
   emailVerified?: boolean | null;
+
+  //Relations
+  @OneToMany(() => AppUser, (appUser) => appUser.user, {
+    cascade: ['soft-remove', 'insert', 'recover', 'remove'],
+  })
+  appUsers: AppUser[];
+
+  // Multiple files relationship (replaces the single profile_picture)
+  @OneToMany(() => FileSystem, (file) => file.user, {
+    cascade: ['insert', 'update', 'remove', 'soft-remove', 'recover'],
+    nullable: true,
+  })
+  profile_pictures?: FileSystem[];
 }
