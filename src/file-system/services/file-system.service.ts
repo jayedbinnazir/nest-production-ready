@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, Injectable, NotFoundException } from '@nestjs/common';
 // import { UpdateFileSystemDto } from '../dto/update-file-system.dto';
 import { CreateFileDto } from '../dto/create-file-system.dto';
 import { DataSource, DeepPartial, EntityManager, In } from 'typeorm';
 import type { Express } from 'express';
 import { FileSystem } from '../entities/file-system.entity';
 import { MulterConfigService } from './multer.config.service';
+import path from 'path';
+import { promises as fs } from 'fs';
 
 @Injectable()
 export class FileSystemService {
@@ -75,7 +77,6 @@ export class FileSystemService {
       size: file.size,
       userId: userId || undefined,
     };
-
     const queryRunner = manager
       ? undefined
       : this.dataSource.createQueryRunner();
@@ -87,18 +88,17 @@ export class FileSystemService {
     }
 
     try {
-      // ✅ Cast DTO to DeepPartial<FileSystem>
-      const newFile: FileSystem = em!.create(
-        FileSystem,
-        fileDto as DeepPartial<FileSystem>,
-      );
+      const newFile: FileSystem = em!.create(FileSystem, {
+        ...fileDto,
+        path: file.path,
+        user: { id: userId },
+      });
 
       const savedFiles = await em!.save(newFile);
 
       if (!manager) {
         await queryRunner?.commitTransaction();
       }
-
       return savedFiles;
     } catch (error) {
       if (!manager) {
@@ -106,6 +106,69 @@ export class FileSystemService {
       }
       if (file.path) {
         await this.multerService.rmvFile(file.path);
+      }
+      throw error;
+    } finally {
+      if (!manager) {
+        await queryRunner?.release();
+      }
+    }
+  }
+
+  async updateFilePath(
+    filePath: string,
+    userId: string,
+    manager?: EntityManager,
+  ) {
+    const queryRunner = manager
+      ? undefined
+      : this.dataSource.createQueryRunner();
+    const em = manager ?? queryRunner?.manager;
+
+    if (!manager) {
+      await queryRunner?.connect();
+      await queryRunner?.startTransaction();
+    }
+    try {
+      await fs.access(filePath);
+      const newPath = filePath.replace('temp', userId);
+
+      // ✅ Ensure destination directory exists
+      const dir = path.dirname(newPath);
+      await fs.mkdir(dir, { recursive: true });
+
+      await fs.rename(filePath, newPath);
+      await fs.access(newPath);
+
+      console.log('file path renamed as==> ', newPath);
+
+      const updateUserFile = await em
+        ?.createQueryBuilder()
+        .update(FileSystem)
+        .set({
+          path: newPath,
+        })
+        .where('user_id= :id', { id: userId })
+        .execute();
+
+      if (!updateUserFile) {
+        throw new HttpException(
+          'File db path update failed after registration',
+          400,
+        );
+      }
+
+      console.log('file path renamed and Db path updated');
+
+      if (!manager) {
+        await queryRunner?.commitTransaction();
+      }
+    } catch (error) {
+      const newPath = filePath.replace('temp', userId);
+      console.log('their is a problem in updating File Path');
+      await this.multerService.rmvFile(newPath);
+      if (!manager) {
+        await queryRunner?.rollbackTransaction();
       }
       throw error;
     } finally {

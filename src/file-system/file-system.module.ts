@@ -18,6 +18,13 @@ import { FileSystem } from './entities/file-system.entity';
   ],
   controllers: [FileSystemController],
   providers: [FileSystemService, MulterConfigService],
-  exports: [MulterConfigService, FileSystemService],
+  exports: [
+    MulterConfigService,
+    FileSystemService,
+    MulterModule.registerAsync({
+      imports: [ConfigModule],
+      useClass: MulterConfigService,
+    }),
+  ],
 })
 export class FileSystemModule {}
