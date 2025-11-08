@@ -12,6 +12,8 @@ import { KafkaModule } from './kafka/kafka.module';
 import { CachingModule } from './caching/caching.module';
 import { FileSystemModule } from './file-system/file-system.module';
 import { AwsS3Module } from './aws-s3/aws-s3.module';
+import { ChatGatewayModule } from './chat-gateway/chat-gateway.module';
+import { AppUserModule } from './app_user/app_user.module';
 
 @Module({
   imports: [
@@ -54,6 +56,10 @@ import { AwsS3Module } from './aws-s3/aws-s3.module';
     FileSystemModule,
 
     AwsS3Module,
+
+    ChatGatewayModule,
+
+    AppUserModule,
   ],
   providers: [AppService],
   controllers: [AppController],

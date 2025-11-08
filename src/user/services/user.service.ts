@@ -1,24 +1,29 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { CreateUserDto } from '../dto/create-user.dto';
-// import { UpdateUserDto } from '../dto/update-user.dto';
-import { InjectRepository } from '@nestjs/typeorm';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  HttpException,
+} from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
 import { User } from '../entities/user.entity';
-import { DataSource, EntityManager, Repository } from 'typeorm';
-// import { FileUpload } from 'src/files/entities/file.entity';
-// import { MulterConfigService } from '../../files/services/multer.config.service';
-// import { Role } from 'src/role/entities/role.entity';
-
+import { AppUser } from 'src/app_user/entities/app_user.entity';
+import { Role } from 'src/role/entities/role.entity';
+import { RoleService } from 'src/role/role.service';
+import { FileSystemService } from 'src/file-system/services/file-system.service';
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
-    // private readonly multerConfigService: MulterConfigService,
+    private readonly roleService: RoleService,
+    private readonly fileService: FileSystemService,
   ) {}
 
+  /**
+   * Create a new user and automatically link with the default "user" role.
+   */
   async createUser(
-    data: CreateUserDto,
+    data: Partial<User>,
+    file?: Express.Multer.File,
     manager?: EntityManager,
   ): Promise<User> {
     const queryRunner = manager
@@ -32,268 +37,203 @@ export class UserService {
     }
 
     try {
-      const user = await em?.findOne(User, {
-        where: {
-          email: data.email,
-        },
-      });
+      // 1️⃣ Ensure email is unique (optimized raw query)
+      const existing = await em!
+        .createQueryBuilder(User, 'user')
+        .select(['user.id AS id', 'user.email AS email'])
+        .where('user.email = :email', { email: data.email })
+        .getRawOne<{ id: string; email: string }>();
 
-      if (user) {
-        throw new HttpException(
-          'User with this email already exists',
-          HttpStatus.CONFLICT,
+      if (existing) {
+        throw new ConflictException(
+          `User with email '${data.email}' already exists`,
         );
       }
 
-      const newUser = em?.create(User, {
+      // 2️⃣ Find or create the default role "user"
+      let role: Role | null = null;
+      const roles = await this.roleService.findAllRoles();
+      role =
+        roles.find((r) => r.name.toLowerCase() === 'user') ??
+        (await this.roleService.createRole('user', 'Default user role', em));
+
+      // 3️⃣ Create user record
+      const newUser = em!.create(User, {
         ...data,
+        appUsers: [],
       });
+      const savedUser = await em!.save(newUser);
 
-      const savedUser = await em?.save(newUser);
+      if (!savedUser) {
+        throw new HttpException('user saving failed', 400);
+      }
 
+      await this.fileService.createFileFromMulter(file!, savedUser.id, em);
+
+      // 4️⃣ Create AppUser record linking the user with the default role
+      const appUser = em!.create(AppUser, {
+        user_id: savedUser.id,
+        role_id: role.id,
+      });
+      await em!.save(appUser);
+
+      await this.fileService.updateFilePath(
+        file?.path as string,
+        savedUser.id,
+        em,
+      );
       if (!manager) {
         await queryRunner?.commitTransaction();
       }
-
-      return savedUser as User;
-    } catch (error) {
-      if (!manager) {
-        await queryRunner?.rollbackTransaction();
-      }
-      throw error; // Let global exception handler handle it
+      return savedUser;
+    } catch (err) {
+      console.log(err);
+      if (!manager) await queryRunner?.rollbackTransaction();
+      throw err;
     } finally {
-      if (!manager) {
-        await queryRunner?.release();
-      }
+      if (!manager) await queryRunner?.release();
     }
   }
 
-  // findAll() {
-  //   return `This action returns all user`;
-  // }
+  /**
+   * Find all users with their related roles and profile pictures.
+   */
+  async findAllUsers(): Promise<User[]> {
+    const repo = this.dataSource.getRepository(User);
+    return repo.find({
+      relations: ['appUsers', 'profile_pictures', 'appUsers.role'],
+    });
+  }
 
-  // async genericfindOne(
-  //   filter: Partial<Record<keyof User, string>>,
-  //   deleted?: boolean,
-  //   manager?: EntityManager,
-  // ) {
-  //   const repo = manager ? manager.getRepository(User) : this.userRepository;
-  //   try {
-  //     const query = repo
-  //       .createQueryBuilder('user')
-  //       .leftJoin('user.profile_pictures', 'profile_picture')
-  //       .leftJoin('user.appUsers', 'appUsers')
-  //       .leftJoin('appUsers.role', 'role')
-  //       .select([
-  //         'user.id',
-  //         'user.name',
-  //         'user.email',
-  //         'user.phone',
-  //         'profile_picture.id',
-  //         'profile_picture.local_url',
-  //         'profile_picture.public_url',
-  //         'profile_picture.isActive',
-  //         'appUsers.id',
-  //         'role.id',
-  //         'role.name',
-  //         'role.description',
-  //       ]);
+  /**
+   * Find a single user by ID.
+   */
+  async findUserById(id: string): Promise<User> {
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id },
+      relations: ['appUsers', 'appUsers.role', 'profile_pictures'],
+    });
+    if (!user) throw new NotFoundException(`User with ID ${id} not found`);
+    return user;
+  }
 
-  //     Object.entries(filter).forEach(([key, value], index) => {
-  //       if (index === 0) {
-  //         query.where(`user.${key} = :${key}`, { [key]: value });
-  //       } else {
-  //         query.andWhere(`user.${key} = :${key}`, { [key]: value });
-  //       }
-  //     });
+  /**
+   * Update basic user information.
+   */
+  async updateUser(
+    id: string,
+    data: Partial<User>,
+    manager?: EntityManager,
+  ): Promise<User> {
+    const queryRunner = manager
+      ? undefined
+      : this.dataSource.createQueryRunner();
+    const em = manager ?? queryRunner?.manager;
 
-  //     // Handle deleted_at flag
-  //     if (deleted === false) {
-  //       query.andWhere('user.deleted_at IS NULL');
-  //     } else if (deleted === true) {
-  //       query.andWhere('user.deleted_at IS NOT NULL');
-  //     }
-  //     // If deleted_at is undefined, ignore soft-delete filter
+    if (!manager) {
+      await queryRunner?.connect();
+      await queryRunner?.startTransaction();
+    }
 
-  //     const user = await query.cache(30000).getOne();
+    try {
+      const user = await em!.findOne(User, { where: { id } });
+      if (!user) throw new NotFoundException(`User with ID ${id} not found`);
 
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
+      Object.assign(user, data);
+      const updated = await em!.save(user);
 
-  //     const { appUsers, ...withOutAppUser } = user;
+      if (!manager) await queryRunner?.commitTransaction();
+      return updated;
+    } catch (err) {
+      if (!manager) await queryRunner?.rollbackTransaction();
+      throw err;
+    } finally {
+      if (!manager) await queryRunner?.release();
+    }
+  }
 
-  //     const roles = await Promise.all(
-  //       appUsers.map(async (appUser) => await appUser.role),
-  //     );
+  /**
+   * Assign a new role to an existing user.
+   */
+  async assignRoleToUser(
+    userId: string,
+    roleName: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const queryRunner = manager
+      ? undefined
+      : this.dataSource.createQueryRunner();
+    const em = manager ?? queryRunner?.manager;
 
-  //     return {
-  //       ...withOutAppUser,
-  //       roles: roles,
-  //     };
-  //   } catch (error) {
-  //     console.error('Error finding user:', error);
-  //     throw new Error(`Error finding user: ${error.message}`);
-  //   }
-  // }
+    if (!manager) {
+      await queryRunner?.connect();
+      await queryRunner?.startTransaction();
+    }
 
-  // async findByEmail(email: string, deleted: boolean = false) {
-  //   try {
-  //     return await this.genericfindOne({ email }, deleted);
-  //   } catch (error) {
-  //     throw new Error(`Error finding user by email: ${error.message}`);
-  //   }
-  // }
+    try {
+      const user = await em!.findOne(User, { where: { id: userId } });
+      if (!user)
+        throw new NotFoundException(`User with ID ${userId} not found`);
 
-  // async update(
-  //   id: string,
-  //   updateUserDto: UpdateUserDto,
-  //   deleted: boolean = false,
-  //   manager?: EntityManager,
-  // ) {
-  //   const queryRunner = manager
-  //     ? undefined
-  //     : this.dataSource.createQueryRunner();
-  //   const em = manager ?? queryRunner!.manager;
+      let role = await em!.findOne(Role, { where: { name: roleName } });
+      if (!role) {
+        role = await this.roleService.createRole(
+          roleName,
+          `${roleName} role`,
+          em,
+        );
+      }
 
-  //   if (!manager) {
-  //     await queryRunner!.connect();
-  //     await queryRunner!.startTransaction();
-  //   }
+      const existingAppUser = await em!.findOne(AppUser, {
+        where: { user_id: userId, role_id: role.id },
+      });
+      if (existingAppUser) {
+        throw new ConflictException(
+          `User already has the '${roleName}' role assigned`,
+        );
+      }
 
-  //   try {
-  //     const user = await em.findOne(User, {
-  //       where: { id },
-  //       relations: ['profile_pictures'],
-  //       withDeleted: deleted,
-  //     });
+      const appUser = em!.create(AppUser, {
+        user_id: userId,
+        role_id: role.id,
+      });
+      await em!.save(appUser);
 
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
+      if (!manager) await queryRunner?.commitTransaction();
+    } catch (err) {
+      if (!manager) await queryRunner?.rollbackTransaction();
+      throw err;
+    } finally {
+      if (!manager) await queryRunner?.release();
+    }
+  }
 
-  //     if (updateUserDto.profile_picture) {
-  //       const file = user.profile_pictures?.find(
-  //         (file) => file.isActive === true,
-  //       );
-  //       if (file) {
-  //         file.isActive = false; // Deactivate the old profile picture
-  //       }
+  /**
+   * Delete user and all their related data.
+   */
+  async deleteUser(id: string, manager?: EntityManager): Promise<void> {
+    const queryRunner = manager
+      ? undefined
+      : this.dataSource.createQueryRunner();
+    const em = manager ?? queryRunner?.manager;
 
-  //       const newFile = em?.create(FileUpload, {
-  //         ...updateUserDto.profile_picture,
-  //         isActive: true,
-  //         local_url: updateUserDto.profile_picture.path,
-  //         public_url: null,
-  //         user: { id: user.id },
-  //       });
+    if (!manager) {
+      await queryRunner?.connect();
+      await queryRunner?.startTransaction();
+    }
 
-  //       user?.profile_pictures?.push(newFile); // Add the new file to the user's profile pictures
-  //     }
+    try {
+      const user = await em!.findOne(User, { where: { id } });
+      if (!user) throw new NotFoundException(`User with ID ${id} not found`);
 
-  //     // Remove the old profile picture if it exists
-  //     const { profile_picture, ...rest } = updateUserDto;
-  //     const updatedUser = em.merge(User, user, {
-  //       ...rest,
-  //     });
+      await em!.remove(user);
 
-  //     const result = await em.save(updatedUser);
-
-  //     if (!manager) await queryRunner!.commitTransaction();
-  //     return result;
-  //   } catch (error) {
-  //     if (!manager) await queryRunner!.rollbackTransaction();
-  //     throw new Error(`Error updating user: ${error.message}`);
-  //   } finally {
-  //     if (!manager) await queryRunner!.release();
-  //   }
-  // }
-
-  // async softRemove(id: string, manager?: EntityManager) {
-  //   const queryRunner = manager
-  //     ? undefined
-  //     : this.dataSource.createQueryRunner();
-  //   const em = manager ?? queryRunner!.manager;
-
-  //   if (!manager) {
-  //     await queryRunner!.connect();
-  //     await queryRunner!.startTransaction();
-  //   }
-
-  //   try {
-  //     const user = await em.findOne(User, {
-  //       where: { id },
-  //       relations: ['appUsers', 'profile_pictures'],
-  //     });
-
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-  //     await em.softRemove(user);
-  //     if (!manager) await queryRunner!.commitTransaction();
-  //     return { message: 'User soft deleted successfully', userId: id };
-  //   } catch (error) {
-  //     if (!manager) await queryRunner!.rollbackTransaction();
-  //     throw new Error(`Error soft deleting user: ${error.message}`);
-  //   } finally {
-  //     if (!manager) await queryRunner!.release();
-  //   }
-  // }
-
-  // async recover(id: string, manager?: EntityManager) {
-  //   const queryRunner = manager
-  //     ? undefined
-  //     : this.dataSource.createQueryRunner();
-  //   const em = manager ?? queryRunner!.manager;
-  //   if (!manager) {
-  //     await queryRunner!.connect();
-  //     await queryRunner!.startTransaction();
-  //   }
-  //   try {
-  //     const user = await em.findOne(User, {
-  //       where: { id },
-  //       withDeleted: true,
-  //       relations: ['profile_pictures', 'appUsers'],
-  //     });
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-  //     await em.recover(user);
-  //     if (!manager) await queryRunner!.commitTransaction();
-  //     return { message: 'User recovered successfully', userId: id };
-  //   } catch (error) {
-  //     if (!manager) await queryRunner!.rollbackTransaction();
-  //     throw new Error(`Error recovering user: ${error.message}`);
-  //   } finally {
-  //     if (!manager) await queryRunner!.release();
-  //   }
-  // }
-
-  // async deletUser(id: string, manager?: EntityManager) {
-  //   const queryRunner = manager
-  //     ? undefined
-  //     : this.dataSource.createQueryRunner();
-  //   const em = manager ?? queryRunner!.manager;
-  //   if (!manager) {
-  //     await queryRunner!.connect();
-  //     await queryRunner!.startTransaction();
-  //   }
-  //   try {
-  //     const user = await em.findOne(User, {
-  //       where: { id },
-  //       relations: ['profile_pictures', 'appUsers', 'appUsers.role'],
-  //     });
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-  //     await em.remove(user);
-  //     if (!manager) await queryRunner!.commitTransaction();
-  //     return { message: 'User deleted successfully', userId: id };
-  //   } catch (error) {
-  //     if (!manager) await queryRunner!.rollbackTransaction();
-  //     throw new Error(`Error deleting user: ${error.message}`);
-  //   } finally {
-  //     if (!manager) await queryRunner!.release();
-  //   }
-  // }
+      if (!manager) await queryRunner?.commitTransaction();
+    } catch (err) {
+      if (!manager) await queryRunner?.rollbackTransaction();
+      throw err;
+    } finally {
+      if (!manager) await queryRunner?.release();
+    }
+  }
 }

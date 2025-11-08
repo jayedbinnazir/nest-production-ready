@@ -15,6 +15,7 @@
         "PGADMIN",
         "pids",
         "presigner",
+        "renamimg",
         "requirepass",
         "timestamptz"
     ]
