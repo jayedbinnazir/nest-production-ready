@@ -1,98 +1,175 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+## Retailer Sales Representative Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend service for managing national retailer data, supporting sales representatives (SRs) and administrators. The API is built with NestJS, PostgreSQL (TypeORM), Redis caching, and ships with Docker, migrations, seeds, Swagger docs, and automated tests.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+### Core Capabilities
+- JWT authentication for admins and SRs (role-aware guards and decorators)
+- Hierarchy management: regions, areas, distributors, territories
+- Retailer catalogue:
+  - SR endpoints: paginated assignments, search/filter, detail view, limited updates
+  - Admin endpoints: CRUD, CSV bulk import, bulk assignments/unassignments
+- Sales rep management with soft limits (~70 retailers / rep configurable)
+- Redis-backed caching on SR retailer listings
+- Kafka/socket.io scaffolding preserved from boilerplate
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 1. Getting Started
 
-## Project setup
+### Prerequisites
+- Node.js 20+
+- npm 10+
+- Docker & Docker Compose (for containerized stack)
+- PostgreSQL 14+ (local or via Docker)
+- Redis 6+ (local or via Docker)
 
+### Install dependencies
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### Environment variables
+Create `.env.dev` (or copy to `.env.prod` for production). Example configuration:
+```
+APP_NAME=Retailer API
+PORT=3000
+HOST=0.0.0.0
+GLOBAL_PREFIX=api
 
-```bash
-# development
-$ npm run start
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_NAME=retailer_db
 
-# watch mode
-$ npm run start:dev
+JWT_SECRET=super-secret-change-me
+JWT_EXPIRES_IN=3600
+AUTH_SALT_ROUNDS=10
+RETAILER_CACHE_TTL=60
+SALES_REP_ASSIGNMENT_LIMIT=200
 
-# production mode
-$ npm run start:prod
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=Admin123!
+SEED_ADMIN_NAME=System Admin
+SEED_SALES_REP_USERNAME=sr001
+SEED_SALES_REP_PASSWORD=SrUser123!
 ```
 
-## Run tests
+---
 
+## 2. Running the application
+
+### Local development
 ```bash
-# unit tests
-$ npm run test
+# start Postgres & Redis via docker-compose (optional helper)
+docker-compose -f docker-compose.dev.yml up -d
 
-# e2e tests
-$ npm run test:e2e
+# run migrations
+npm run mr
 
-# test coverage
-$ npm run test:cov
+# seed baseline data (roles, admin, sample hierarchy, SR assignments)
+npm run seed
+
+# start API with hot reload
+npm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### Production build
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run build
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Dockerized stack
+```bash
+# build & run app + dependencies (dev profile)
+npm run docker:build
 
-## Resources
+# stop containers
+npm run docker:down
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+---
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 3. Database & Data
 
-## Support
+- `npm run mgd` – generate migration (development)
+- `npm run mr` – run migrations
+- `npm run mrv` – revert last migration
+- `npm run seed` – idempotent seed script creating:
+  - `admin` / `sales_rep` roles
+  - Admin user (uses `SEED_ADMIN_*`)
+  - Sample region/area/territory/distributor hierarchy
+  - Three demo retailers assigned to default SR
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Migration file: `migrations/1720460400000-RetailerSchema.ts`
 
-## Stay in touch
+---
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## 4. Testing & Quality
 
-## License
+```bash
+# run unit tests (>=5 focused scenarios around auth flows)
+npm run test
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# optional coverage
+npm run test:cov
+```
+
+- ESLint / Prettier configs provided (`npm run lint`, `npm run format`)
+- Global validation pipe (whitelist & transform) and exception filter configured
+
+---
+
+## 5. API Documentation
+
+- Swagger UI served at `http://localhost:3000/api/docs`
+- Versioned routing (`/api/v1/...`)
+- Auth:
+  - `POST /api/v1/auth/login` with body `{ type: 'admin' | 'sales_rep', identifier, password }`
+  - Bearer token required for subsequent requests
+
+### Key Endpoints
+- `GET /api/v1/retailers` – SR paginated assignments (search, filters, caching)
+- `PATCH /api/v1/retailers/:uid` – SR updates (points, routes, notes)
+- `POST /api/v1/admin/retailers/import` – CSV upload (`uid,name,phone,...`)
+- `POST /api/v1/admin/assignments/bulk` – assign retailers to SRs
+- `POST /api/v1/admin/assignments/bulk-unassign` – unassign retailers
+- CRUD under `/api/v1/admin/{regions|areas|territories|distributors|retailers|sales-reps}`
+
+---
+
+## 6. Scaling & Performance Notes
+
+- **Data modeling**: all lookup tables normalized, join table (`sales_rep_retailers`) with composite unique index, wide indexing on searchable retailer columns to handle ~1M records.
+- **Caching**: Redis-backed cache for SR listings with per-query keys and targeted invalidation on updates/assignments; TTL configurable via `RETAILER_CACHE_TTL`.
+- **Query efficiency**: TypeORM query builders with explicit joins avoid N+1; pagination uses `LIMIT/OFFSET`.
+- **Write throughput**: Bulk assignments executed within a transaction, optional assignment limit guard (`SALES_REP_ASSIGNMENT_LIMIT`).
+- **Security**: RBAC enforced via custom decorators/guards, JWT strategy issues typed payloads, password hashing with configurable rounds, CSV import sanitized and resilient per row.
+- **Operational readiness**: Dockerized stack, migrations + seeds, centralized config, healthful logging via global exception filter, Swagger for integration hand-off, automated tests for critical auth paths.
+
+---
+
+## 7. Folder Highlights
+
+- `src/retailer` – domain services, controllers, DTOs for retailers & admin workflows
+- `src/region|area|territory|distributor` – hierarchy management modules
+- `src/sales_rep` – sales representative lifecycle and assignment helpers
+- `src/auth` – JWT strategy, guards, decorators, and login flows
+- `scripts/seed.ts` – repeatable seed script
+- `migrations/` – TypeORM schema migrations
+
+---
+
+## 8. Next Steps / Extensions
+
+- Add e2e tests covering SR & admin happy paths
+- Integrate Kafka events for assignment/import audit streaming (scaffold available)
+- Enhance retailer search with full-text & route-based facets
+- Implement background job for CSV imports >10k rows (chunking + status tracking)
+
+Happy hacking! 🚀

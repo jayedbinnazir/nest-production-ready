@@ -23,8 +23,9 @@ export const AppDataSource = new DataSource({
   username: dbConfig.username,
   password: dbConfig.password,
   database: dbConfig.name,
-  synchronize: true,
-  logging: true,
+  synchronize: false,
+  migrationsRun: false,
+  logging: process.env.TYPEORM_LOGGING === 'true',
   entities: [
     isCompiled
       ? path.resolve(__dirname, '../../**/*.entity.js') // production dist

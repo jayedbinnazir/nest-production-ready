@@ -18,8 +18,8 @@ export class AppUser extends BaseEntity {
   @JoinColumn({ name: 'user_id', referencedColumnName: 'id' })
   user: Promise<User>;
 
-  @Column({ type: 'uuid', name: 'role_id' })
-  role_id: string;
+  @Column({ type: 'uuid', name: 'role_id', nullable: true })
+  role_id: string | null;
 
   @ManyToOne(() => Role, (role) => role.appUsers, {
     onDelete: 'SET NULL',
