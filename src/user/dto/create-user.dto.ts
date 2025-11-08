@@ -2,12 +2,14 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { RoleEnum } from 'src/enums/role.enum';
 
 export class CreateUserDto {
   @IsNotEmpty()
@@ -74,4 +76,10 @@ export class CreateUserDto {
     value === null || value === '' ? undefined : String(value).trim(),
   )
   providerId?: string | null; // Google ID, etc.
+
+  @IsOptional()
+  @IsEnum(RoleEnum, {
+    message: `Role name must be one of: ${Object.values(RoleEnum).join(', ')}`,
+  })
+  role?: RoleEnum;
 }

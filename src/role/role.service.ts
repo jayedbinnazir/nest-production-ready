@@ -5,16 +5,19 @@ import {
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Role } from './entities/role.entity';
+import { CreateRoleDto } from './dto/create-role.dto';
+import { RoleEnum } from 'src/enums/role.enum';
 
 @Injectable()
 export class RoleService {
   constructor(private readonly dataSource: DataSource) {}
 
   async createRole(
-    name: string,
-    description: string,
+    createRoleDto: CreateRoleDto,
     manager?: EntityManager,
   ): Promise<Role> {
+    const { name, description } = createRoleDto;
+
     const queryRunner = manager
       ? undefined
       : this.dataSource.createQueryRunner();
@@ -26,9 +29,17 @@ export class RoleService {
     }
 
     try {
+      // ✅ Ensure the name is a valid enum (extra safety)
+      if (!Object.values(RoleEnum).includes(name)) {
+        throw new ConflictException(
+          `Invalid role name '${name}'. Must be one of: ${Object.values(RoleEnum).join(', ')}`,
+        );
+      }
+
       const existing = await em!.findOne(Role, { where: { name } });
-      if (existing)
+      if (existing) {
         throw new ConflictException(`Role '${name}' already exists`);
+      }
 
       const role = em!.create(Role, { name, description });
       const saved = await em!.save(role);
@@ -43,8 +54,15 @@ export class RoleService {
     }
   }
 
-  async findAllRoles(): Promise<Role[]> {
-    return this.dataSource.getRepository(Role).find();
+  async findAllRoles(manager?: EntityManager): Promise<Role[]> {
+    const em = manager ?? this.dataSource.manager;
+    return em.find(Role);
+  }
+
+  async findByName(name: RoleEnum): Promise<Role | null> {
+    return await this.dataSource
+      .getRepository(Role)
+      .findOne({ where: { name } });
   }
 
   async findRoleById(id: string): Promise<Role> {

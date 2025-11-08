@@ -3,10 +3,19 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { CustomExceptionFilter } from './common/filters/global-exception.filter';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const httpAdapterHost = app.get(HttpAdapterHost);
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
+
   app.useGlobalFilters(new CustomExceptionFilter(httpAdapterHost));
 
   const configservice = app.get(ConfigService);

@@ -1,11 +1,17 @@
-import { IsNotEmpty, IsString, MinLength, MaxLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  MaxLength,
+  IsEnum,
+} from 'class-validator';
+import { RoleEnum } from 'src/enums/role.enum';
 
 export class CreateRoleDto {
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
-  @MaxLength(20)
-  name: string;
+  @IsEnum(RoleEnum, {
+    message: `Role name must be one of: ${Object.values(RoleEnum).join(', ')}`,
+  })
+  name: RoleEnum;
 
   @IsString()
   @IsNotEmpty()

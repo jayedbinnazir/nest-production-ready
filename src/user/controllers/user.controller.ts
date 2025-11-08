@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Get,
   // Delete,
   // Get,
   // Param,
   // Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -30,6 +32,13 @@ export class UserController {
   ) {
     const user = await this.userService.createUser(createUserDto, file);
     return user;
+  }
+
+  @Get('search')
+  async searchUsers(@Query('query') query?: string) {
+    // If query is not provided, you can either return all users or empty array
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return await this.userService.findAllUsers(query || '');
   }
 
   //   @Get()
